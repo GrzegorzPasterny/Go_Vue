@@ -12,6 +12,7 @@ import (
 )
 
 var ph = []string{"Mark", "Russell", "Rocky", "Haris", "Root"}
+var sublogs []string
 
 const hunger = 3                // Number of times each philosopher eats
 const think = time.Second / 100 // Mean think time
@@ -42,7 +43,9 @@ func main() {
 }
 
 func diningProblem(phName string, dominantHand, otherHand *sync.Mutex, w http.ResponseWriter) {
-	fmt.Fprintf(w, phName, "Seated")
+
+	sublogs = append(sublogs, fmt.Sprintf(phName, "Seated"))
+
 	h := fnv.New64a()
 	h.Write([]byte(phName))
 	rg := rand.New(rand.NewSource(int64(h.Sum64())))
@@ -50,19 +53,19 @@ func diningProblem(phName string, dominantHand, otherHand *sync.Mutex, w http.Re
 		time.Sleep(t/2 + time.Duration(rg.Int63n(int64(t))))
 	}
 	for h := hunger; h > 0; h-- {
-		fmt.Fprintf(w, phName, "Hungry")
+		sublogs = append(sublogs, fmt.Sprintf(phName, "Hungry"))
 		dominantHand.Lock() // pick up forks
 		otherHand.Lock()
-		fmt.Fprintf(w, phName, "Eating")
+		sublogs = append(sublogs, fmt.Sprintf(phName, "Eating"))
 		rSleep(eat)
 		dominantHand.Unlock() // put down forks
 		otherHand.Unlock()
-		fmt.Fprintf(w, phName, "Thinking")
+		sublogs = append(sublogs, fmt.Sprintf(phName, "Thinking"))
 		rSleep(think)
 	}
-	fmt.Fprintf(w, phName, "Satisfied")
+	sublogs = append(sublogs, fmt.Sprintf(phName, "Satisfied"))
 	dining.Done()
-	fmt.Fprintf(w, phName, "Left the table")
+	sublogs = append(sublogs, fmt.Sprintf(phName, "Left the table"))
 }
 
 func homePageHandler(w http.ResponseWriter, r *http.Request) {
@@ -102,10 +105,11 @@ func homePageHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var philosopherLogs PhilosopherOutput
+	var sublogs []string
 
 	philosopherLogs.Name = []string{"Mark", "Russell", "Rocky", "Haris", "Root"}
 
-	fmt.Fprintf(w, "Table empty")
+	philosopherLogs.Statuses = append(philosopherLogs.Statuses, "Table empty")
 	dining.Add(5)
 	fork0 := &sync.Mutex{}
 	forkLeft := fork0
@@ -114,10 +118,12 @@ func homePageHandler(w http.ResponseWriter, r *http.Request) {
 		go diningProblem(ph[i], forkLeft, forkRight, w)
 		forkLeft = forkRight
 	}
-	go diningProblem(ph[0], fork0, forkLeft, w)
-	dining.Wait() // wait for philosphers to finish
-	philosopherLogs.Statuses = append(philosopherLogs.Statuses, "Table empty")
 
+	go diningProblem(ph[0], fork0, forkLeft, w)
+
+	dining.Wait() // wait for philosphers to finish
+	philosopherLogs.Statuses = append(philosopherLogs.Statuses, sublogs...)
+	philosopherLogs.Statuses = append(philosopherLogs.Statuses, "Table empty")
 	philosopherOutput, err := json.Marshal(philosopherLogs)
 
 	if err != nil {
