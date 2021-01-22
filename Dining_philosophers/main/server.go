@@ -27,6 +27,11 @@ type Input struct {
 
 type Inputs []Input
 
+type PhilosopherOutput struct {
+	Name     []string `json:"Name"`
+	Statuses []string `json:"Status"`
+}
+
 func main() {
 	http.HandleFunc("/", homePageHandler)
 
@@ -96,6 +101,10 @@ func homePageHandler(w http.ResponseWriter, r *http.Request) {
 			" - " + inputs[i].HowManyDishesToBeEaten)
 	}
 
+	var philosopherLogs PhilosopherOutput
+
+	philosopherLogs.Name = []string{"Mark", "Russell", "Rocky", "Haris", "Root"}
+
 	fmt.Fprintf(w, "Table empty")
 	dining.Add(5)
 	fork0 := &sync.Mutex{}
@@ -107,6 +116,13 @@ func homePageHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	go diningProblem(ph[0], fork0, forkLeft, w)
 	dining.Wait() // wait for philosphers to finish
-	fmt.Fprintf(w, "Table empty")
-	fmt.Fprintf(w, "hello world")
+	philosopherLogs.Statuses = append(philosopherLogs.Statuses, "Table empty")
+
+	philosopherOutput, err := json.Marshal(philosopherLogs)
+
+	if err != nil {
+		panic(err)
+	}
+
+	w.Write(philosopherOutput)
 }
