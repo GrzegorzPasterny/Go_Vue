@@ -42,9 +42,11 @@ func main() {
 	)
 }
 
-func diningProblem(phName string, dominantHand, otherHand *sync.Mutex, w http.ResponseWriter) {
+func diningProblem(phName string, dominantHand, otherHand *sync.Mutex, w http.ResponseWriter) []string {
 
 	sublogs = append(sublogs, fmt.Sprintf(phName, "Seated"))
+	var subLogs2 []string
+	subLogs2 = append(sublogs, fmt.Sprintf(phName, "Seated"))
 
 	h := fnv.New64a()
 	h.Write([]byte(phName))
@@ -66,6 +68,8 @@ func diningProblem(phName string, dominantHand, otherHand *sync.Mutex, w http.Re
 	sublogs = append(sublogs, fmt.Sprintf(phName, "Satisfied"))
 	dining.Done()
 	sublogs = append(sublogs, fmt.Sprintf(phName, "Left the table"))
+
+	return subLogs2
 }
 
 func homePageHandler(w http.ResponseWriter, r *http.Request) {
@@ -118,11 +122,14 @@ func homePageHandler(w http.ResponseWriter, r *http.Request) {
 		go diningProblem(ph[i], forkLeft, forkRight, w)
 		forkLeft = forkRight
 	}
-
-	go diningProblem(ph[0], fork0, forkLeft, w)
+	var subLogs2 []string
+	go func() {
+		subLogs2 = diningProblem(ph[0], fork0, forkLeft, w)
+	}()
 
 	dining.Wait() // wait for philosphers to finish
 	philosopherLogs.Statuses = append(philosopherLogs.Statuses, sublogs...)
+	philosopherLogs.Statuses = append(philosopherLogs.Statuses, subLogs2...)
 	philosopherLogs.Statuses = append(philosopherLogs.Statuses, "Table empty")
 	philosopherOutput, err := json.Marshal(philosopherLogs)
 
