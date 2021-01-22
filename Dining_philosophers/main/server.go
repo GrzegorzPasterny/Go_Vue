@@ -1,14 +1,14 @@
 package main
 
 import (
-	"log"
-	"net/http"
+	"encoding/json"
 	"fmt"
 	"hash/fnv"
+	"log"
 	"math/rand"
+	"net/http"
 	"sync"
 	"time"
-	"encoding/json"
 )
 
 var ph = []string{"Mark", "Russell", "Rocky", "Haris", "Root"}
@@ -20,8 +20,8 @@ const eat = time.Second / 100   // Mean eat time
 var dining sync.WaitGroup
 
 type Input struct {
-	Name string `json:"Name"`
-	TimeToEat string `json:"TimeToEat"`
+	Name                   string `json:"Name"`
+	TimeToEat              string `json:"TimeToEat"`
 	HowManyDishesToBeEaten string `json:"HowManyDishesToBeEaten"`
 }
 
@@ -61,30 +61,40 @@ func diningProblem(phName string, dominantHand, otherHand *sync.Mutex, w http.Re
 }
 
 func homePageHandler(w http.ResponseWriter, r *http.Request) {
-	
+
 	var inputs []Input
 
 	Data := []byte(` 
     [ 
         {"Name": "John", "TimeToEat": "3", "HowManyDishesToBeEaten": "3"}, 
         {"Name": "Marta", "TimeToEat": "4", "HowManyDishesToBeEaten": "2"}
-    ]`) 
-	
-	err := json.Unmarshal(Data, &inputs) 
-  
-    if err != nil { 
-  
-        // if error is not nil 
-        // print error 
-        fmt.Println(err) 
-    } 
-  
-    // printing decoded array 
-    // values one by one 
-    for i := range inputs { 
-        fmt.Println(inputs[i].Name + " - " + inputs[i].TimeToEat +  
-                                     " - " + inputs[i].HowManyDishesToBeEaten) 
-    } 
+    ]`)
+
+	err := json.Unmarshal(Data, &inputs)
+
+	inputsJson, err := json.Marshal(inputs)
+
+	if err != nil {
+		panic(err)
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	w.Write(inputsJson)
+
+	if err != nil {
+
+		// if error is not nil
+		// print error
+		fmt.Println(err)
+	}
+
+	// printing decoded array
+	// values one by one
+	for i := range inputs {
+		fmt.Println(inputs[i].Name + " - " + inputs[i].TimeToEat +
+			" - " + inputs[i].HowManyDishesToBeEaten)
+	}
 
 	fmt.Fprintf(w, "Table empty")
 	dining.Add(5)
