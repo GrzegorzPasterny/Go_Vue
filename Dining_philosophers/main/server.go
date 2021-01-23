@@ -44,9 +44,8 @@ func main() {
 
 func diningProblem(phName string, dominantHand, otherHand *sync.Mutex, w http.ResponseWriter) []string {
 
-	sublogs = append(sublogs, fmt.Sprintf(phName, "Seated"))
 	var subLogs2 []string
-	subLogs2 = append(sublogs, fmt.Sprintf(phName, "Seated"))
+	subLogs2 = append(subLogs2, fmt.Sprintf(phName, "Seated"))
 
 	h := fnv.New64a()
 	h.Write([]byte(phName))
@@ -55,19 +54,19 @@ func diningProblem(phName string, dominantHand, otherHand *sync.Mutex, w http.Re
 		time.Sleep(t/2 + time.Duration(rg.Int63n(int64(t))))
 	}
 	for h := hunger; h > 0; h-- {
-		sublogs = append(sublogs, fmt.Sprintf(phName, "Hungry"))
+		subLogs2 = append(subLogs2, fmt.Sprintf(phName, "Hungry"))
 		dominantHand.Lock() // pick up forks
 		otherHand.Lock()
-		sublogs = append(sublogs, fmt.Sprintf(phName, "Eating"))
+		subLogs2 = append(subLogs2, fmt.Sprintf(phName, "Eating"))
 		rSleep(eat)
 		dominantHand.Unlock() // put down forks
 		otherHand.Unlock()
-		sublogs = append(sublogs, fmt.Sprintf(phName, "Thinking"))
+		subLogs2 = append(subLogs2, fmt.Sprintf(phName, "Thinking"))
 		rSleep(think)
 	}
-	sublogs = append(sublogs, fmt.Sprintf(phName, "Satisfied"))
+	subLogs2 = append(subLogs2, fmt.Sprintf(phName, "Satisfied"))
 	dining.Done()
-	sublogs = append(sublogs, fmt.Sprintf(phName, "Left the table"))
+	subLogs2 = append(subLogs2, fmt.Sprintf(phName, "Left the table"))
 
 	return subLogs2
 }
@@ -109,7 +108,7 @@ func homePageHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var philosopherLogs PhilosopherOutput
-	var sublogs []string
+	var sublogs [][]string
 
 	philosopherLogs.Name = []string{"Mark", "Russell", "Rocky", "Haris", "Root"}
 
@@ -119,17 +118,20 @@ func homePageHandler(w http.ResponseWriter, r *http.Request) {
 	forkLeft := fork0
 	for i := 1; i < len(ph); i++ {
 		forkRight := &sync.Mutex{}
-		go diningProblem(ph[i], forkLeft, forkRight, w)
+		go func(){
+			sublogs = append(sublogs, diningProblem(ph[i], forkLeft, forkRight, w))
+		}()
 		forkLeft = forkRight
 	}
-	var subLogs2 []string
+	var subLogs3 []string
 	go func() {
-		subLogs2 = diningProblem(ph[0], fork0, forkLeft, w)
+		subLogs3 = diningProblem(ph[0], fork0, forkLeft, w)
 	}()
 
 	dining.Wait() // wait for philosphers to finish
-	philosopherLogs.Statuses = append(philosopherLogs.Statuses, sublogs...)
-	philosopherLogs.Statuses = append(philosopherLogs.Statuses, subLogs2...)
+	philosopherLogs.Statuses = append(philosopherLogs.Statuses, sublogs[1]...)
+	philosopherLogs.Statuses = append(philosopherLogs.Statuses, "BREAK!!!--------------------------------------")
+	philosopherLogs.Statuses = append(philosopherLogs.Statuses, subLogs3...)
 	philosopherLogs.Statuses = append(philosopherLogs.Statuses, "Table empty")
 	philosopherOutput, err := json.Marshal(philosopherLogs)
 
