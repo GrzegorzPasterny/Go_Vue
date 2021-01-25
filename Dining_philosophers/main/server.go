@@ -12,18 +12,18 @@ import (
 )
 
 var ph = []string{"Mark", "Russell", "Rocky", "Haris", "Root"}
-var sublogs []string
 
-const hunger = 3                // Number of times each philosopher eats
-const think = time.Second / 100 // Mean think time
-const eat = time.Second / 100   // Mean eat time
+// const hunger = 3                // Number of times each philosopher eats
+// const think = time.Second / 100 // Mean think time
+// const eat = time.Second / 100   // Mean eat time
 
 var dining sync.WaitGroup
 
 type Input struct {
 	Name                   string `json:"Name"`
-	TimeToEat              string `json:"TimeToEat"`
-	HowManyDishesToBeEaten string `json:"HowManyDishesToBeEaten"`
+	TimeToEat              int `json:"TimeToEat"`
+	TimeToThink			   int `json:"TimeToThink"`	
+	HowManyDishesToBeEaten int `json:"HowManyDishesToBeEaten"`
 }
 
 type Inputs []Input
@@ -43,32 +43,35 @@ func main() {
 	)
 }
 
-func diningProblem(phName string, dominantHand, otherHand *sync.Mutex, w http.ResponseWriter) {
+func diningProblem(ph Input, dominantHand, otherHand *sync.Mutex, w http.ResponseWriter) {
 	
 	var philosophersLog []PhilosopherOutput
 
-	philosophersLog = append(philosophersLog, PhilosopherOutput{Name: phName, Status: "Seated", TimeStamp: time.Now().Format("15:04:05.99999999")})
+	philosophersLog = append(philosophersLog, PhilosopherOutput{Name: ph.Name, Status: "Seated", TimeStamp: time.Now().Format("15:04:05.99999999")})
 	
+	think := time.Duration(ph.TimeToEat) * time.Second / 100 
+	eat := time.Duration(ph.TimeToEat) * time.Second / 100
+
 	h := fnv.New64a()
-	h.Write([]byte(phName))
+	h.Write([]byte(ph.Name))
 	rg := rand.New(rand.NewSource(int64(h.Sum64())))
 	rSleep := func(t time.Duration) {
 		time.Sleep(t/2 + time.Duration(rg.Int63n(int64(t))))
 	}
-	for h := hunger; h > 0; h-- {
-		philosophersLog = append(philosophersLog, PhilosopherOutput{Name:phName, Status:"Hungry", TimeStamp: time.Now().Format("15:04:05.99999999")})
+	for h := ph.HowManyDishesToBeEaten; h > 0; h-- {
+		philosophersLog = append(philosophersLog, PhilosopherOutput{Name:ph.Name, Status:"Hungry", TimeStamp: time.Now().Format("15:04:05.99999999")})
 		dominantHand.Lock() // pick up forks
 		otherHand.Lock()
-		philosophersLog = append(philosophersLog, PhilosopherOutput{Name:phName, Status:"Eating", TimeStamp: time.Now().Format("15:04:05.99999999")})
+		philosophersLog = append(philosophersLog, PhilosopherOutput{Name:ph.Name, Status:"Eating", TimeStamp: time.Now().Format("15:04:05.99999999")})
 		rSleep(eat)
 		dominantHand.Unlock() // put down forks
 		otherHand.Unlock()
-		philosophersLog = append(philosophersLog, PhilosopherOutput{Name:phName, Status:"Thinking", TimeStamp: time.Now().Format("15:04:05.99999999")})
+		philosophersLog = append(philosophersLog, PhilosopherOutput{Name:ph.Name, Status:"Thinking", TimeStamp: time.Now().Format("15:04:05.99999999")})
 		rSleep(think)
 	}
-	philosophersLog = append(philosophersLog, PhilosopherOutput{Name:phName, Status:"Satisfied", TimeStamp: time.Now().Format("15:04:05.99999999")})
+	philosophersLog = append(philosophersLog, PhilosopherOutput{Name:ph.Name, Status:"Satisfied", TimeStamp: time.Now().Format("15:04:05.99999999")})
 	dining.Done()
-	philosophersLog = append(philosophersLog, PhilosopherOutput{Name:phName, Status:"Left the table", TimeStamp: time.Now().Format("15:04:05.99999999")})
+	philosophersLog = append(philosophersLog, PhilosopherOutput{Name:ph.Name, Status:"Left the table", TimeStamp: time.Now().Format("15:04:05.99999999")})
 	
 	philosophersLogOut, err := json.Marshal(philosophersLog)
 	
@@ -93,32 +96,32 @@ func homePageHandler(w http.ResponseWriter, r *http.Request) {
 		fmt.Println(err)
 	}
 	
-	inputsOut, err := json.Marshal(inputs)
+	// inputsOut, err := json.Marshal(inputs)
 	
-	if err != nil {
-		panic(err)
-	}
+	// if err != nil {
+	// 	panic(err)
+	// }
 	
-	w.Write(inputsOut)
+	// w.Write(inputsOut)
 
 	// printing decoded array
 	// values one by one
-	for i := range inputs {
-		fmt.Println(inputs[i].Name + " - " + inputs[i].TimeToEat +
-		" - " + inputs[i].HowManyDishesToBeEaten)
-	}
+	// for i := range inputs {
+	// 	fmt.Println(inputs[i].Name + " - " + inputs[i].TimeToEat +
+	// 	" - " + inputs[i].HowManyDishesToBeEaten)
+	// }
 	
-	dining.Add(5)
+	dining.Add(len(inputs))
 	fork0 := &sync.Mutex{}
 	forkLeft := fork0
-	for i := 1; i < len(ph); i++ {
+	for i := 1; i < len(inputs); i++ {
 		forkRight := &sync.Mutex{}
 		
-		go diningProblem(ph[i], forkLeft, forkRight, w)
+		go diningProblem(inputs[i], forkLeft, forkRight, w)
 		forkLeft = forkRight
 	}
 	
-	go diningProblem(ph[0], fork0, forkLeft, w)
+	go diningProblem(inputs[0], fork0, forkLeft, w)
 	
 	dining.Wait() // wait for philosphers to finish
 	//philosopherLogs.Statuses = append(philosopherLogs.Statuses, sublogs[1]...)
