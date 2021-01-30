@@ -7,6 +7,7 @@ import (
 	"log"
 	"math/rand"
 	"net/http"
+	"strconv"
 	"sync"
 	"time"
 )
@@ -21,14 +22,17 @@ var dining sync.WaitGroup
 
 type Input struct {
 	Name                   string `json:"Name"`
-	TimeToEat              int `json:"TimeToEat"`
-	TimeToThink			   int `json:"TimeToThink"`	
-	HowManyDishesToBeEaten int `json:"HowManyDishesToBeEaten"`
+	TimeToEat              string `json:"TimeToEat"`
+	TimeToThink			   string `json:"TimeToThink"`	
+	HowManyDishesToBeEaten string `json:"HowManyDishesToBeEaten"`
 }
 
 type Inputs []Input
 
+var id = 0
+
 type PhilosopherOutput struct {
+	Id 			int `json:"id"`
 	Name     string `json:"Name"`
 	Status string `json:"Status"`
 	TimeStamp string `json:"TimeStamp"`
@@ -47,14 +51,44 @@ func main() {
 	)
 }
 
+func SendAsJson(pl PhilosopherOutput, w http.ResponseWriter) {
+	philosophersLogOut, err := json.Marshal(pl)
+	
+	if err != nil {
+		panic(err)
+	}
+	
+	w.Write(philosophersLogOut)
+	comma := []byte(",")
+	w.Write(comma)
+}
+
 func diningProblem(ph Input, dominantHand, otherHand *sync.Mutex, w http.ResponseWriter) {
 	
-	var philosophersLog []PhilosopherOutput
+	var philosophersLog PhilosopherOutput
 
-	philosophersLog = append(philosophersLog, PhilosopherOutput{Name: ph.Name, Status: "Seated", TimeStamp: time.Now().Format("15:04:05.99999999")})
+	id++
+	philosophersLog = PhilosopherOutput{Id: id, Name: ph.Name, Status: "Seated", TimeStamp: time.Now().Format("15:04:05.99999999")}
+	SendAsJson(philosophersLog, w)
+
+	timeToEat, err := strconv.Atoi(ph.TimeToEat)
+	if err != nil {
+        fmt.Println(err)
+	}
+
+	timeToThink, err := strconv.Atoi(ph.TimeToThink)
+	if err != nil {
+        fmt.Println(err)
+	}
+
+	howManyDishesToBeEaten, err := strconv.Atoi(ph.HowManyDishesToBeEaten)
+	if err != nil {
+        fmt.Println(err)
+	}
 	
-	think := time.Duration(ph.TimeToEat) * time.Second / 100 
-	eat := time.Duration(ph.TimeToEat) * time.Second / 100
+
+	think := time.Duration(timeToThink) * time.Second / 100 
+	eat := time.Duration(timeToEat) * time.Second / 100
 
 	h := fnv.New64a()
 	h.Write([]byte(ph.Name))
@@ -62,28 +96,30 @@ func diningProblem(ph Input, dominantHand, otherHand *sync.Mutex, w http.Respons
 	rSleep := func(t time.Duration) {
 		time.Sleep(t/2 + time.Duration(rg.Int63n(int64(t))))
 	}
-	for h := ph.HowManyDishesToBeEaten; h > 0; h-- {
-		philosophersLog = append(philosophersLog, PhilosopherOutput{Name:ph.Name, Status:"Hungry", TimeStamp: time.Now().Format("15:04:05.99999999")})
+	for h := howManyDishesToBeEaten; h > 0; h-- {
+		id++
+		philosophersLog = PhilosopherOutput{Id: id, Name:ph.Name, Status:"Hungry", TimeStamp: time.Now().Format("15:04:05.99999999")}
+		SendAsJson(philosophersLog, w)
 		dominantHand.Lock() // pick up forks
 		otherHand.Lock()
-		philosophersLog = append(philosophersLog, PhilosopherOutput{Name:ph.Name, Status:"Eating", TimeStamp: time.Now().Format("15:04:05.99999999")})
+		id++
+		philosophersLog = PhilosopherOutput{Id: id, Name:ph.Name, Status:"Eating", TimeStamp: time.Now().Format("15:04:05.99999999")}
+		SendAsJson(philosophersLog, w)
 		rSleep(eat)
 		dominantHand.Unlock() // put down forks
 		otherHand.Unlock()
-		philosophersLog = append(philosophersLog, PhilosopherOutput{Name:ph.Name, Status:"Thinking", TimeStamp: time.Now().Format("15:04:05.99999999")})
+		id++
+		philosophersLog = PhilosopherOutput{Id: id, Name:ph.Name, Status:"Thinking", TimeStamp: time.Now().Format("15:04:05.99999999")}
+		SendAsJson(philosophersLog, w)
 		rSleep(think)
 	}
-	philosophersLog = append(philosophersLog, PhilosopherOutput{Name:ph.Name, Status:"Satisfied", TimeStamp: time.Now().Format("15:04:05.99999999")})
+	id++
+	philosophersLog = PhilosopherOutput{Id: id, Name:ph.Name, Status:"Satisfied", TimeStamp: time.Now().Format("15:04:05.99999999")}
+	SendAsJson(philosophersLog, w)
 	dining.Done()
-	philosophersLog = append(philosophersLog, PhilosopherOutput{Name:ph.Name, Status:"Left the table", TimeStamp: time.Now().Format("15:04:05.99999999")})
-	
-	philosophersLogOut, err := json.Marshal(philosophersLog)
-	
-	if err != nil {
-		panic(err)
-	}
-	
-	w.Write(philosophersLogOut)
+	id++
+	philosophersLog = PhilosopherOutput{Id: id, Name:ph.Name, Status:"Left the table", TimeStamp: time.Now().Format("15:04:05.99999999")}
+	SendAsJson(philosophersLog, w)
 }
 
 func homePageHandler(w http.ResponseWriter, r *http.Request) {
@@ -91,7 +127,6 @@ func homePageHandler(w http.ResponseWriter, r *http.Request) {
 	if (*r).Method == "OPTIONS" {
 		return
 	}
-	//enableCors(&w)
 
 	w.Header().Set("Content-Type", "application/json")
 	var inputs []Input
@@ -105,27 +140,14 @@ func homePageHandler(w http.ResponseWriter, r *http.Request) {
 		fmt.Println(err)
 	}
 	
-	// inputsOut, err := json.Marshal(inputs)
-	
-	// if err != nil {
-	// 	panic(err)
-	// }
-	
-	// w.Write(inputsOut)
+	a := []byte("[")
+	w.Write(a)
 
-	// printing decoded array
-	// values one by one
-	// for i := range inputs {
-	// 	fmt.Println(inputs[i].Name + " - " + inputs[i].TimeToEat +
-	// 	" - " + inputs[i].HowManyDishesToBeEaten)
-	// }
-	
 	dining.Add(len(inputs))
 	fork0 := &sync.Mutex{}
 	forkLeft := fork0
 	for i := 1; i < len(inputs); i++ {
 		forkRight := &sync.Mutex{}
-		
 		go diningProblem(inputs[i], forkLeft, forkRight, w)
 		forkLeft = forkRight
 	}
@@ -133,28 +155,26 @@ func homePageHandler(w http.ResponseWriter, r *http.Request) {
 	go diningProblem(inputs[0], fork0, forkLeft, w)
 	
 	dining.Wait() // wait for philosphers to finish
-	//philosopherLogs.Statuses = append(philosopherLogs.Statuses, sublogs[1]...)
 	
-	w.WriteHeader(http.StatusOK)
-}
+	id++
+	philosophersLog := PhilosopherOutput{Id: id, Name:"Feast ended", Status:"Everyone's satisfied", TimeStamp: time.Now().Format("15:04:05.99999999")}
+	philosophersLogOut, err := json.Marshal(philosophersLog)
+	
+	if err != nil {
+		panic(err)
+	}
+	
+	w.Write(philosophersLogOut)
 
-// func enableCors(w *http.ResponseWriter) {
-// 	(*w).Header().Set("Access-Control-Allow-Origin", "*")
-// 	(*w).Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE")
-//     (*w).Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization")
-// }
+	a = []byte("]")
+	w.Write(a)
+	id=0
+	//w.WriteHeader(http.StatusOK)
+
+}
 
 func setupResponse(w *http.ResponseWriter, req *http.Request) {
 	(*w).Header().Set("Access-Control-Allow-Origin", "*")
     (*w).Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE")
     (*w).Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization")
 }
-
-// func Cors(h http.Handler) http.Handler {
-// 	corsConfig := cors.New(cors.Options{
-// 	  AllowedHeaders: []string{"Origin", "Accept", "Content-Type", "X-Requested-With", "Authorization"},
-// 	  AllowedMethods: []string{"POST", "PUT", "GET", "PATCH", "OPTIONS", "HEAD", "DELETE"},
-// 	  Debug:          true,
-// 	})
-// 	return corsConfig.Handler(h)
-//   }
