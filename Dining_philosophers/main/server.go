@@ -35,7 +35,11 @@ type PhilosopherOutput struct {
 }
 
 func main() {
-	http.HandleFunc("/", homePageHandler)
+
+	http.HandleFunc("/DiningPhilosophers", homePageHandler)
+	
+	fs := http.FileServer(http.Dir("../philosophers_frontend/dist"))
+	http.Handle("/", fs)
 
 	fmt.Println("Server listening on port 3000")
 	log.Panic(
@@ -83,7 +87,12 @@ func diningProblem(ph Input, dominantHand, otherHand *sync.Mutex, w http.Respons
 }
 
 func homePageHandler(w http.ResponseWriter, r *http.Request) {
-	
+	setupResponse(&w, r)
+	if (*r).Method == "OPTIONS" {
+		return
+	}
+	//enableCors(&w)
+
 	w.Header().Set("Content-Type", "application/json")
 	var inputs []Input
 
@@ -128,3 +137,24 @@ func homePageHandler(w http.ResponseWriter, r *http.Request) {
 	
 	w.WriteHeader(http.StatusOK)
 }
+
+// func enableCors(w *http.ResponseWriter) {
+// 	(*w).Header().Set("Access-Control-Allow-Origin", "*")
+// 	(*w).Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE")
+//     (*w).Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization")
+// }
+
+func setupResponse(w *http.ResponseWriter, req *http.Request) {
+	(*w).Header().Set("Access-Control-Allow-Origin", "*")
+    (*w).Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE")
+    (*w).Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization")
+}
+
+// func Cors(h http.Handler) http.Handler {
+// 	corsConfig := cors.New(cors.Options{
+// 	  AllowedHeaders: []string{"Origin", "Accept", "Content-Type", "X-Requested-With", "Authorization"},
+// 	  AllowedMethods: []string{"POST", "PUT", "GET", "PATCH", "OPTIONS", "HEAD", "DELETE"},
+// 	  Debug:          true,
+// 	})
+// 	return corsConfig.Handler(h)
+//   }
